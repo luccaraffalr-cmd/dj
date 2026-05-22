@@ -52,7 +52,7 @@ Respondé SOLO con JSON válido, sin texto extra, sin markdown:
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer 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'
+      'Authorization': `Bearer ${import.meta.env.VITE_GROQ_KEY}`
     },
     body: JSON.stringify({
       model: 'llama-3.3-70b-versatile',
