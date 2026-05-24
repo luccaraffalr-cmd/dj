@@ -30,19 +30,13 @@ export const ARTIST_POOL = [
   'Young Miko', 'Zion', 'Zion & Lennox', 'iZaak', 'Ñejo', 'Ñengo Flow',
 ]
 
-// Artistas que el modelo tiende a sobrerepresentar — hay que limitarlos activamente
+// Artistas que el modelo tiende a sobrerepresentar
 const OVEREXPOSED_ARTISTS = ['Bad Bunny', 'Feid', 'J Balvin', 'Maluma', 'Ozuna', 'KAROL G']
-
-// Cuántas veces puede aparecer un artista overexposed por "turno de exploración"
 const OVEREXPOSED_LIMIT = 2
 
 function buildArtistPoolPrompt(suggestedArtistsTonight) {
   const suggested = new Set(suggestedArtistsTonight)
-  
-  // Artistas que todavía no sonaron esta noche — priorizarlos
   const unseen = ARTIST_POOL.filter(a => !suggested.has(a))
-  
-  // Contar cuántos overexposed ya sonaron
   const overexposedCount = OVEREXPOSED_ARTISTS.filter(a => suggested.has(a)).length
 
   const poolNote = unseen.length > 0
@@ -64,54 +58,69 @@ export async function askDJ({
   publicMode,
   lastPlayed,
   recentFeedback,
-  suggestedArtistsTonight = [],  // nuevo: todos los artistas sugeridos esta noche
+  suggestedArtistsTonight = [],
 }) {
   const hour = currentHour ?? new Date().getHours()
 
   const timeContext =
-    hour >= 23 || hour < 1 ? 'inicio de fiesta (medianoche, piso llenándose)' :
-    hour >= 1 && hour < 3   ? 'pico de la fiesta (madrugada, piso lleno)' :
-    hour >= 3 && hour < 5   ? 'cierre de la fiesta (amanecer, últimas energías)' :
-    hour >= 20              ? 'pre-fiesta (calentando motores)' :
-                              'fuera de horario de fiesta'
+    hour >= 23 || hour < 1 ? 'inicio de fiesta — piso llenándose, subir temperatura gradualmente' :
+    hour >= 1 && hour < 3  ? 'pico de la fiesta — piso lleno, mantener energía máxima sin parar' :
+    hour >= 3 && hour < 5  ? 'cierre — gente cansada pero eufórica, mezclar bangers con algo más melódico' :
+    hour >= 20             ? 'pre-fiesta — calentar el ambiente, todavía no es el momento de los bangers pesados' :
+                             'fuera de horario de fiesta'
 
   const artistPoolSection = buildArtistPoolPrompt(suggestedArtistsTonight)
 
-  const prompt = `Sos un DJ experto en reggaetón para una fiesta de +150 personas (21-26 años) en Moreno, Buenos Aires, Argentina.
+  const prompt = `Sos el cerebro de una app de DJ para una fiesta de reggaetón. Tu trabajo es elegir la próxima canción que va a sonar en la pista.
 
-CONTEXTO ACTUAL:
+CONTEXTO DE LA FIESTA:
+- 150 personas, 21-26 años, Moreno, Buenos Aires, Argentina
 - Hora: ${hour}hs — ${timeContext}
 - Modo: ${publicMode
-    ? 'PÚBLICO: elegí hits masivos que TODO el mundo conozca (2000-2024). Si la gente no sabe la letra, no sirve.'
-    : 'PERSONAL: gusto del dueño. Podés mezclar hits con temas más específicos o underground del pool.'}
+    ? 'PÚBLICO — la gente tiene que conocer la letra. Solo hits masivos, nada underground.'
+    : 'PERSONAL — gusto del dueño. Podés arriesgar con temas más específicos del pool.'}
 
-DISTRIBUCIÓN DE ÉPOCAS PARA ESTE SET:
-- Clásico (antes de 2015): 15% — Don Omar, Wisin & Yandel, Plan B, Tego, Daddy Yankee
-- Transición (2015–2020): 25% — Ozuna, Anuel AA, Nicky Jam, KAROL G, Farruko
-- Actual (2020–hoy): 60% — Bad Bunny, Feid, JHAYCO, Mora, trap argentino, chileno
+QUÉ FUNCIONA EN ESTA PISTA (ejemplos de temas que SÍ van):
+Rakata (Wisin & Yandel), Dale Don Dale (Don Omar), No Me Conoce Remix (JHAYCO/Bad Bunny),
+El Efecto (Rauw Alejandro), Es un Secreto (Plan B), Party (Bad Bunny/Rauw),
+Candy (Plan B), Brickell (Feid/Yandel), Fanatica Sensual (Plan B), Me Estás Tentando (Wisin & Yandel).
+Características comunes: beat duro, ritmo que empuja, letra que la gente canta, tempo 95-130 BPM.
+
+QUÉ NO VA EN ESTA PISTA (aunque sean populares):
+EoO (Bad Bunny) — demasiado lento y atmosférico para pista.
+Ojitos Lindos (Bad Bunny) — ritmo roto, no se puede perrear.
+Un Verano Sin Ti (Bad Bunny) — ambient, baja energía.
+444 / 111 (Yan Block) — trap lento, piso se vacía.
+Una Vez (Bad Bunny/Mora) — melódico puro, no tiene groove de pista.
+Regla general: si la canción no te dan ganas de bailar en los primeros 10 segundos, no va.
+
+DISTRIBUCIÓN DE ÉPOCAS:
+- Clásico reggaetón (antes de 2015): 15% — Don Omar, Wisin & Yandel, Plan B, Tego, Daddy Yankee
+- Urbano transición (2015–2020): 25% — Ozuna, Anuel AA, Nicky Jam, KAROL G, Farruko
+- Actual (2020–hoy): 60% — Feid, JHAYCO, Mora, Myke Towers, trap argentino/chileno, Bad Bunny actual
 
 ${artistPoolSection}
 
-FEEDBACK ACUMULADO:
-- Le gustaron (aprendé el estilo): ${likedSongs.slice(-15).map(s => s.name).join(', ') || 'ninguno aún'}
-- Excluidos para siempre (NUNCA sugerir): ${dislikedForever.map(s => s.name).join(', ') || 'ninguno'}
-- Salteados esta noche (no repetir hoy): ${skippedNow.slice(-10).map(s => s.name).join(', ') || 'ninguno'}
-- Últimas 5 canciones reproducidas (no repetir): ${lastPlayed.slice(-5).map(s => s.name).join(', ') || 'ninguno'}
-- Señal reciente del piso: ${recentFeedback || 'sin datos aún'}
+FEEDBACK DEL USUARIO ESTA NOCHE:
+- Le gustaron — aprendé qué estilo está funcionando: ${likedSongs.slice(-15).map(s => s.name).join(', ') || 'ninguno aún'}
+- NUNCA MÁS — no sugerir bajo ningún concepto: ${dislikedForever.map(s => s.name).join(', ') || 'ninguno'}
+- Salteados esta noche — no repetir hoy: ${skippedNow.slice(-10).map(s => s.name).join(', ') || 'ninguno'}
+- Últimas reproducidas — no repetir: ${lastPlayed.slice(-5).map(s => s.name).join(', ') || 'ninguno'}
+- Señal del piso ahora: ${recentFeedback || 'sin datos aún'}
 
-REGLAS OBLIGATORIAS:
+REGLAS:
 1. Sugerí exactamente 3 canciones.
-2. Nunca repitas una canción que esté en "excluidos", "salteados" o "últimas reproducidas".
-3. Explorá el pool completo. No te limites a los artistas más conocidos — el pool fue armado por el usuario y todos tienen igual valor.
-4. Respetá la distribución de épocas aproximadamente entre las 3 canciones.
-5. Priorizá artistas del pool que AÚN NO hayan sonado esta noche.
-6. Energía mínima: media-alta. Nada lento ni romántico puro para una pista activa.
-7. Las canciones tienen que existir realmente. No inventes títulos.
+2. Cada canción tiene que tener beat bailabledonde la gente arranque a moverse sola. Si dudás si va en pista, no la pongas.
+3. Nunca sugieras canciones de "NUNCA MÁS", "salteados" o "últimas reproducidas".
+4. Las canciones tienen que existir realmente — no inventes títulos ni versiones.
+5. Explorá el pool completo, no solo los artistas más famosos.
+6. Respetá la distribución de épocas entre las 3 canciones.
+7. Si el usuario tuvo likes seguidos de un estilo, seguí en esa dirección. Si hubo skips, cambiá.
 
 Respondé SOLO con JSON válido, sin texto extra, sin markdown:
 {
   "songs": [
-    {"artist": "nombre exacto del artista", "title": "nombre exacto de la canción", "year": 2021, "energy": "alta|media", "era": "clasico|transicion|actual", "reason": "por qué esta canción ahora (máx 8 palabras)"},
+    {"artist": "nombre exacto", "title": "nombre exacto de la canción", "year": 2021, "energy": "alta|media", "era": "clasico|transicion|actual", "reason": "por qué esta canción ahora (máx 8 palabras)"},
     {"artist": "...", "title": "...", "year": 2019, "energy": "alta", "era": "transicion", "reason": "..."},
     {"artist": "...", "title": "...", "year": 2023, "energy": "alta", "era": "actual", "reason": "..."}
   ],
@@ -127,7 +136,7 @@ Respondé SOLO con JSON válido, sin texto extra, sin markdown:
     body: JSON.stringify({
       model: 'llama-3.3-70b-versatile',
       max_tokens: 1000,
-      temperature: 0.9,       // más variedad en las sugerencias
+      temperature: 0.9,
       messages: [{ role: 'user', content: prompt }]
     })
   })
